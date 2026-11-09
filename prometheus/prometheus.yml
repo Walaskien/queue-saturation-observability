@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s       # short on purpose: the lab should react in seconds
+  evaluation_interval: 5s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: queue
+    static_configs:
+      - targets: ["queue-exporter:9101"]
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

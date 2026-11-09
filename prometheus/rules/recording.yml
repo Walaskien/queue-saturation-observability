@@ -1,0 +1,19 @@
+groups:
+  - name: queue-recording
+    rules:
+      - record: queue:enqueue_rate:rate1m
+        expr: rate(queue_enqueued_total[1m])
+      - record: queue:processed_rate:rate1m
+        expr: rate(queue_processed_total[1m])
+      # > 1 means producers outpace consumers
+      - record: queue:saturation_ratio:rate1m
+        expr: queue:enqueue_rate:rate1m / clamp_min(queue:processed_rate:rate1m, 0.01)
+      # messages per second the backlog grows (negative = draining)
+      - record: queue:backlog_growth:deriv1m
+        expr: deriv(queue_backlog_messages[1m])
+  - name: host-recording
+    rules:
+      - record: instance:node_cpu_busy:ratio1m
+        expr: 1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m]))
+      - record: instance:node_memory_used:ratio
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes

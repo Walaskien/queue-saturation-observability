@@ -1,0 +1,52 @@
+groups:
+  - name: queue-saturation
+    rules:
+      # Backlog is growing while the host is NOT busy: the bottleneck is in the
+      # processing path (consumers, locks, downstream), not in CPU/RAM.
+      - alert: QueueBacklogGrowingHostHealthy
+        expr: |
+          queue:backlog_growth:deriv1m > 1
+          and queue_backlog_messages > 100
+          and on() max(instance:node_cpu_busy:ratio1m) < 0.8
+          and on() max(instance:node_memory_used:ratio) < 0.9
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Queue backlog grows while host CPU/RAM are normal"
+          description: "Processing bottleneck, not host resources. See docs/runbook.md#queuebackloggrowinghosthealthy"
+
+      # Same symptom, but the host is also saturated: look at the host first.
+      - alert: QueueBacklogGrowingHostBusy
+        expr: |
+          queue:backlog_growth:deriv1m > 1
+          and queue_backlog_messages > 100
+          and on() (max(instance:node_cpu_busy:ratio1m) >= 0.8
+                    or max(instance:node_memory_used:ratio) >= 0.9)
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Queue backlog grows and the host is saturated"
+          description: "Resource shortage is a likely cause. See docs/runbook.md#queuebackloggrowinghostbusy"
+
+      - alert: QueueOldestMessageTooOld
+        expr: queue_oldest_message_age_seconds > 60
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "Oldest message waited {{ $value | humanizeDuration }}"
+          description: "Users feel this as delayed documents. See docs/runbook.md#queueoldestmessagetooold"
+
+      - alert: QueueConsumersDown
+        expr: queue_consumers == 0 and queue_backlog_messages > 0
+        for: 15s
+        labels: {severity: critical}
+        annotations:
+          summary: "No consumers, messages are waiting"
+          description: "See docs/runbook.md#queueconsumersdown"
+
+      - alert: QueueExporterDown
+        expr: up{job="queue"} == 0
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Queue exporter is not scraped"

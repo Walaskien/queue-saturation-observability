@@ -1,0 +1,104 @@
+rule_files:
+  - rules/recording.yml
+  - rules/alerts.yml
+
+evaluation_interval: 5s
+
+tests:
+  # Flood: backlog +40/s, host idle -> "host healthy" variant fires, not "host busy".
+  - interval: 5s
+    input_series:
+      - series: 'queue_backlog_messages{job="queue"}'
+        values: '0+200x30'
+      - series: 'queue_enqueued_total{job="queue"}'
+        values: '0+225x30'
+      - series: 'queue_processed_total{job="queue"}'
+        values: '0+25x30'
+      - series: 'queue_consumers{job="queue"}'
+        values: '3x30'
+      - series: 'queue_oldest_message_age_seconds{job="queue"}'
+        values: '0+5x30'
+      - series: 'node_cpu_seconds_total{instance="n1",mode="idle"}'
+        values: '0+4.5x30'   # 90% idle per second -> 10% busy
+      - series: 'node_memory_MemAvailable_bytes{instance="n1"}'
+        values: '6e9x30'
+      - series: 'node_memory_MemTotal_bytes{instance="n1"}'
+        values: '8e9x30'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: QueueBacklogGrowingHostHealthy
+        exp_alerts:
+          - exp_labels: {job: queue, severity: warning}
+            exp_annotations:
+              summary: "Queue backlog grows while host CPU/RAM are normal"
+              description: "Processing bottleneck, not host resources. See docs/runbook.md#queuebackloggrowinghosthealthy"
+      - eval_time: 2m
+        alertname: QueueBacklogGrowingHostBusy
+        exp_alerts: []
+
+  # Same flood, but CPU is saturated -> the other variant fires.
+  - interval: 5s
+    input_series:
+      - series: 'queue_backlog_messages{job="queue"}'
+        values: '0+200x30'
+      - series: 'node_cpu_seconds_total{instance="n1",mode="idle"}'
+        values: '0+0.1x30'   # 2% idle -> 98% busy
+      - series: 'node_memory_MemAvailable_bytes{instance="n1"}'
+        values: '6e9x30'
+      - series: 'node_memory_MemTotal_bytes{instance="n1"}'
+        values: '8e9x30'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: QueueBacklogGrowingHostBusy
+        exp_alerts:
+          - exp_labels: {job: queue, severity: warning}
+            exp_annotations:
+              summary: "Queue backlog grows and the host is saturated"
+              description: "Resource shortage is a likely cause. See docs/runbook.md#queuebackloggrowinghostbusy"
+      - eval_time: 2m
+        alertname: QueueBacklogGrowingHostHealthy
+        exp_alerts: []
+
+  # Healthy queue: nothing fires.
+  - interval: 5s
+    input_series:
+      - series: 'queue_backlog_messages{job="queue"}'
+        values: '2x30'
+      - series: 'queue_oldest_message_age_seconds{job="queue"}'
+        values: '0.4x30'
+      - series: 'queue_consumers{job="queue"}'
+        values: '3x30'
+      - series: 'up{job="queue"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: QueueOldestMessageTooOld
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: QueueConsumersDown
+        exp_alerts: []
+
+  # Consumers dead, queue small: age and consumers alerts fire.
+  - interval: 5s
+    input_series:
+      - series: 'queue_backlog_messages{job="queue"}'
+        values: '0+5x30'
+      - series: 'queue_oldest_message_age_seconds{job="queue"}'
+        values: '0+5x30'
+      - series: 'queue_consumers{job="queue"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: QueueConsumersDown
+        exp_alerts:
+          - exp_labels: {job: queue, severity: critical}
+            exp_annotations:
+              summary: "No consumers, messages are waiting"
+              description: "See docs/runbook.md#queueconsumersdown"
+      - eval_time: 2m
+        alertname: QueueOldestMessageTooOld
+        exp_alerts:
+          - exp_labels: {job: queue, severity: critical}
+            exp_annotations:
+              summary: "Oldest message waited 2m 0s"
+              description: "Users feel this as delayed documents. See docs/runbook.md#queueoldestmessagetooold"
