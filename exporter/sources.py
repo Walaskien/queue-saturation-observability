@@ -108,8 +108,8 @@ class RabbitMQQueue:
         backlog = int(d.get("messages_ready", 0)) + int(d.get("messages_unacknowledged", 0))
         return {"backlog": backlog,
                 "consumers": int(d.get("consumers", 0)),
-                "enqueued_total": stats.get("publish"),
-                "processed_total": stats.get("ack"),
+                "enqueued_total": stats.get("publish", 0) if stats else None,
+                "processed_total": stats.get("ack", 0) if stats else None,
                 "oldest_age": None}
 
 
