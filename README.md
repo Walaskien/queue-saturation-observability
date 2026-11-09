@@ -1,5 +1,7 @@
 # queue-saturation-observability
 
+[![ci](https://github.com/Walaskien/queue-saturation-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/Walaskien/queue-saturation-observability/actions/workflows/ci.yml)
+
 Monitoring for the case where a message queue falls behind while the servers look healthy.
 
 A queue of documents, jobs or events can back up because consumers are blocked on a database lock, a slow downstream call or a crashed worker. CPU and RAM graphs stay green, so host-level alerts say nothing, while users wait for their documents. This repository measures the queue itself and tells you whether the cause is a **processing bottleneck** or a **shortage of host resources**.
@@ -90,8 +92,9 @@ Run on macOS (Colima, Docker 29), Python 3.9.6:
 | `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
 | Demo stack, run end to end | all targets up; after `flood` (45 msg/s in, 7.5 out) `ALERTS` showed `QueueBacklogGrowingHostHealthy` with host CPU at about 6%; after `stall` Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown` and the backlog alert; Grafana provisioned the dashboard (found via `/api/search`) |
 | RabbitMQ adapter against a real `rabbitmq:3.13-management` container | exported backlog 5, consumers 0, enqueued 5 for a queue with 5 published messages |
+| GitHub Actions (`ci`, run 42587313095, commit "Translate docs to English") | success: `ruff` and `pytest` on Python 3.9 and 3.12; `promtool` check and unit tests, `amtool`, `docker compose config` |
 
-Not verified: the Redis adapter against a real Redis (only a fake RESP server in the tests), the file adapter on a real spool in use, the dashboard visually (provisioning confirmed through the API only), GitHub Actions (written, not run yet), and any real production workload.
+Not verified: the Redis adapter against a real Redis (only a fake RESP server in the tests), the file adapter on a real spool in use, the dashboard visually (provisioning confirmed through the API only), and any real production workload.
 
 ## Limits
 
@@ -111,3 +114,8 @@ alertmanager/, grafana/   configs and provisioned dashboard
 docs/        runbook.md, bottleneck-vs-host.md
 tests/       pytest for the exporter and adapters
 ```
+
+## Related
+
+- [ansible-linux-baseline](https://github.com/Walaskien/ansible-linux-baseline): installs node_exporter on the consumer hosts, which the host-resource alerts here need.
+- [single-node-k8s-platform](https://github.com/Walaskien/single-node-k8s-platform): another stack with a CI-verified end-to-end check.
