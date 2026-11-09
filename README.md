@@ -102,7 +102,7 @@ Not verified: the Redis adapter against a real Redis (only a fake RESP server in
 - Host thresholds use the busiest host in Prometheus (`max`). Filter by `instance` if consumers live on one host.
 - Alertmanager has an empty receiver on purpose (no secrets in the repo).
 
-## Структура репозитория
+## Repository layout
 
 ```
 exporter/    queue_exporter.py, sources.py (adapters), loadgen.py, Dockerfile
@@ -111,7 +111,3 @@ alertmanager/, grafana/   configs and provisioned dashboard
 docs/        runbook.md, bottleneck-vs-host.md
 tests/       pytest for the exporter and adapters
 ```
-
-## Кратко по-русски
-
-Мониторинг очереди сообщений (документооборот, задачи): backlog, возраст старейшего сообщения, застой обработки. Алерты различают «узкое место в обработке» (хост здоров) и «не хватает ресурсов хоста». Экспортёр подключается к RabbitMQ, Redis-списку или каталогу с файлами; есть демо-стенд на Docker Compose. Правила проверены `promtool test`, алерты реально сработали на демо-стенде. Проверено локально не всё: Redis без настоящего сервера, CI ещё не запускался.
