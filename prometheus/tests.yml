@@ -102,3 +102,17 @@ tests:
             exp_annotations:
               summary: "Oldest message waited 2m 0s"
               description: "Users feel this as delayed documents. See docs/runbook.md#queueoldestmessagetooold"
+
+  # Backend alive, backlog present, no progress -> stalled alert.
+  - interval: 5s
+    input_series:
+      - series: 'queue_stalled_seconds{job="queue"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: QueueProcessingStalled
+        exp_alerts:
+          - exp_labels: {job: queue, severity: critical}
+            exp_annotations:
+              summary: "Backlog present, nothing processed for 6m 0s"
+              description: "See docs/runbook.md#queueprocessingstalled"

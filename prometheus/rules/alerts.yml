@@ -36,6 +36,16 @@ groups:
           summary: "Oldest message waited {{ $value | humanizeDuration }}"
           description: "Users feel this as delayed documents. See docs/runbook.md#queueoldestmessagetooold"
 
+      # For backends that cannot report message age (RabbitMQ API): backlog is
+      # non-empty and nothing has been processed for a while.
+      - alert: QueueProcessingStalled
+        expr: queue_stalled_seconds > 120
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "Backlog present, nothing processed for {{ $value | humanizeDuration }}"
+          description: "See docs/runbook.md#queueprocessingstalled"
+
       - alert: QueueConsumersDown
         expr: queue_consumers == 0 and queue_backlog_messages > 0
         for: 15s
@@ -45,7 +55,7 @@ groups:
           description: "See docs/runbook.md#queueconsumersdown"
 
       - alert: QueueExporterDown
-        expr: up{job="queue"} == 0
+        expr: up{job="queue"} == 0 or queue_source_up == 0
         for: 30s
         labels: {severity: warning}
         annotations:

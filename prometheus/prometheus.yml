@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 5s       # short on purpose: the lab should react in seconds
+  scrape_interval: 5s       # short so the demo reacts in seconds; use 15s-30s for real queues
   evaluation_interval: 5s
 
 rule_files:
