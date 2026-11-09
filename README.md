@@ -84,7 +84,7 @@ Run on macOS (Colima, Docker 29), Python 3.9.6:
 |---|---|
 | `pytest -q` (exporter, all adapters) | 13 passed |
 | `ruff check .` | all checks passed |
-| `promtool check rules` (recording + alerts), `check config` | success, 13 rules (6 recording, 7 alerts) |
+| `promtool check rules` (recording + alerts), `check config` | success, 12 rules (6 recording, 6 alerts) |
 | `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, healthy queue, dead consumers, stalled) |
 | `amtool check-config` | valid, 1 receiver |
 | `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
