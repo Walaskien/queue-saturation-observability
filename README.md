@@ -67,7 +67,7 @@ Needs Docker with Compose.
 
 ```console
 make up            # build and start everything with the simulated queue
-make demo-flood    # producers 9x faster than consumers
+make demo-flood    # producers 6x faster than consumers
 make demo-stall    # consumers stop
 make demo-recover  # more consumers
 make alerts        # currently firing alerts
@@ -84,7 +84,7 @@ Run on macOS (Colima, Docker 29), Python 3.9.6:
 |---|---|
 | `pytest -q` (exporter, all adapters) | 13 passed |
 | `ruff check .` | all checks passed |
-| `promtool check rules` (recording + alerts), `check config` | success, 11 rules |
+| `promtool check rules` (recording + alerts), `check config` | success, 13 rules (6 recording, 7 alerts) |
 | `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, healthy queue, dead consumers, stalled) |
 | `amtool check-config` | valid, 1 receiver |
 | `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
