@@ -93,8 +93,11 @@ Run on macOS (Colima, Docker 29), Python 3.9.6:
 | Demo stack, run end to end | all targets up; after `flood` (45 msg/s in, 7.5 out) `ALERTS` showed `QueueBacklogGrowingHostHealthy` with host CPU at about 6%; after `stall` Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown` and the backlog alert; Grafana provisioned the dashboard (found via `/api/search`) |
 | RabbitMQ adapter against a real `rabbitmq:3.13-management` container | exported backlog 5, consumers 0, enqueued 5 for a queue with 5 published messages |
 | GitHub Actions (`ci`, run 42587313095, commit "Translate docs to English") | success: `ruff` and `pytest` on Python 3.9 and 3.12; `promtool` check and unit tests, `amtool`, `docker compose config` |
+| Redis adapter against a real `redis:7` container | backlog 7 after 7 `RPUSH`, 6 after one `LPOP` |
+| File adapter on a real directory | 3 `.xml` files counted, oldest age taken from the oldest file's mtime |
+| Latest exporter in the full demo stack | after `stall` (consumers 0): `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert were firing; after stopping the exporter container `QueueExporterDown` fired |
 
-Not verified: the Redis adapter against a real Redis (only a fake RESP server in the tests), the file adapter on a real spool in use, the dashboard visually (provisioning confirmed through the API only), and any real production workload.
+Not verified: the dashboard visually (provisioning confirmed through the API only), the Redis `AUTH` path against a real server, and any real production workload.
 
 ## Limits
 
