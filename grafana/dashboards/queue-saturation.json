@@ -1,0 +1,281 @@
+{
+  "uid": "queue-saturation",
+  "title": "Queue saturation vs host resources",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "tags": [
+    "lab"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Backlog (messages)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue_backlog_messages",
+          "legendFormat": "backlog",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Oldest message age",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue_oldest_message_age_seconds",
+          "legendFormat": "age",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Enqueue vs processed rate (msg/s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue:enqueue_rate:rate1m",
+          "legendFormat": "enqueued",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "queue:processed_rate:rate1m",
+          "legendFormat": "processed",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Saturation ratio (enqueue / processed, >1 = falling behind)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue:saturation_ratio:rate1m",
+          "legendFormat": "ratio",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Host CPU busy",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "instance:node_cpu_busy:ratio1m",
+          "legendFormat": "cpu",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Host memory used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "instance:node_memory_used:ratio",
+          "legendFormat": "mem",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Consumers",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue_consumers",
+          "legendFormat": "consumers",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Firing alerts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (alertname) (ALERTS{alertstate=\"firing\"})",
+          "legendFormat": "{{alertname}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prom"
+          }
+        }
+      ]
+    }
+  ]
+}
