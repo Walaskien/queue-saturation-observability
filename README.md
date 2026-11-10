@@ -63,6 +63,16 @@ python3 exporter/queue_exporter.py --source file --queue /var/spool/docs --file-
 
 Then add a scrape job pointing at `:9101` to your Prometheus, copy `prometheus/rules/*.yml`, import `grafana/dashboards/queue-saturation.json`, and set the thresholds in `alerts.yml` to your real latency target. The host-resource part of the alerts needs `node_exporter` metrics from the consumer hosts.
 
+## What it looks like
+
+Demo stack after `make demo-flood` and `make demo-stall`. The backlog and the oldest message age keep growing while host CPU falls back to idle.
+
+![Grafana dashboard](docs/img/grafana-dashboard.png)
+
+Alertmanager with the four queue alerts firing:
+
+![Alertmanager](docs/img/alertmanager.png)
+
 ## Try the demo stack
 
 Needs Docker with Compose.
@@ -95,9 +105,10 @@ Run on macOS (Colima, Docker 29), Python 3.9.6:
 | GitHub Actions (`ci`, run 42587313095, commit "Translate docs to English") | success: `ruff` and `pytest` on Python 3.9 and 3.12; `promtool` check and unit tests, `amtool`, `docker compose config` |
 | Redis adapter against a real `redis:7` container | backlog 7 after 7 `RPUSH`, 6 after one `LPOP` |
 | File adapter on a real directory | 3 `.xml` files counted, oldest age taken from the oldest file's mtime |
+| Dashboard and alerts in a browser | screenshots in `docs/img`, taken with headless Chrome from the running stack |
 | Latest exporter in the full demo stack | after `stall` (consumers 0): `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert were firing; after stopping the exporter container `QueueExporterDown` fired |
 
-Not verified: the dashboard visually (provisioning confirmed through the API only), the Redis `AUTH` path against a real server, and any real production workload.
+Not verified: the Redis `AUTH` path against a real server, and any real production workload.
 
 ## Limits
 
@@ -117,6 +128,13 @@ alertmanager/, grafana/   configs and provisioned dashboard
 docs/        runbook.md, bottleneck-vs-host.md
 tests/       pytest for the exporter and adapters
 ```
+
+## What I would improve next
+
+- Alertmanager receivers (email or chat) with a real routing example.
+- A Zabbix or Prometheus-compatible exporter for queues that expose only logs.
+- Per-queue labels so one exporter can watch several queues.
+- A restore test of the dashboard JSON in CI (load it into Grafana and check the panels have data).
 
 ## Related
 
