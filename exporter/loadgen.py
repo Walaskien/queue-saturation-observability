@@ -1,16 +1,13 @@
 """Drive the simulated queue through named scenarios via POST /control."""
 import argparse
-import time
 import urllib.request
 
-# name -> list of (producer_rate, consumers, seconds)
+# name -> (producer_rate msg/s, consumers)
 SCENARIOS = {
-    "normal": [(5, 3, 0)],
-    # producers run 6x faster than consumers can drain
-    "flood": [(45, 3, 0)],
-    # consumers die (stuck on a lock, crashed worker, dead downstream)
-    "stall": [(5, 0, 0)],
-    "recover": [(5, 6, 0)],
+    "normal": (5, 3),
+    "flood": (45, 3),  # 3 consumers drain 7.5 msg/s, so producers are 6x faster
+    "stall": (5, 0),
+    "recover": (5, 6),
 }
 
 
@@ -26,9 +23,8 @@ def main():
     p.add_argument("scenario", choices=sorted(SCENARIOS))
     p.add_argument("--url", default="http://localhost:9101")
     a = p.parse_args()
-    for rate, consumers, secs in SCENARIOS[a.scenario]:
-        print(control(a.url, rate, consumers))
-        time.sleep(secs)
+    rate, consumers = SCENARIOS[a.scenario]
+    print(control(a.url, rate, consumers))
 
 
 if __name__ == "__main__":

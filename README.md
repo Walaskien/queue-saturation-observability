@@ -4,11 +4,11 @@
 
 Monitoring for the case where a message queue falls behind while the servers look healthy.
 
-A queue of documents, jobs or events can back up because consumers are blocked on a database lock, a slow downstream call or a crashed worker. CPU and RAM graphs stay green, so host-level alerts say nothing, while users wait for their documents. This repository measures the queue itself and tells you whether the cause is a **processing bottleneck** or a **shortage of host resources**.
+A queue of documents, jobs or events can back up because consumers are blocked on a database lock, a slow downstream call or a crashed worker. CPU and RAM graphs stay green, so host-level alerts say nothing, while users wait for their documents. This repository measures the queue itself and separates a processing bottleneck from a shortage of host resources.
 
 It contains:
 
-- a small Prometheus exporter (Python, standard library only) with adapters for **RabbitMQ** (management API), **Redis lists**, and a **spool directory** of files; plus a simulated queue for trying it out;
+- a small Prometheus exporter (Python, standard library only) with adapters for RabbitMQ (management API), Redis lists and a spool directory of files, plus a simulated queue for the demo;
 - Prometheus recording and alerting rules, covered by `promtool` unit tests;
 - Alertmanager config skeleton, a Grafana dashboard provisioned from JSON, a [runbook](docs/runbook.md) (symptom, check, action), and a write-up on [telling a queue bottleneck from host saturation](docs/bottleneck-vs-host.md);
 - a Docker Compose stack (Prometheus, Alertmanager, Grafana, node-exporter, exporter) to see all of it working.
@@ -90,23 +90,22 @@ Grafana: http://localhost:3000 (anonymous viewer; admin/admin is a demo password
 
 ## Verified
 
-Run on macOS (Colima, Docker 29), Python 3.9.6:
+Local runs on macOS (Colima, Docker 29), Python 3.9.6:
 
 | Check | Result |
 |---|---|
 | `pytest -q` (exporter, all adapters) | 13 passed |
 | `ruff check .` | all checks passed |
-| `promtool check rules` (recording + alerts), `check config` | success, 12 rules (6 recording, 6 alerts) |
+| `promtool check config` and `check rules` | success, 12 rules (6 recording, 6 alerts) |
 | `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, healthy queue, dead consumers, stalled) |
 | `amtool check-config` | valid, 1 receiver |
 | `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
-| Demo stack, run end to end | all targets up; after `flood` (45 msg/s in, 7.5 out) `ALERTS` showed `QueueBacklogGrowingHostHealthy` with host CPU at about 6%; after `stall` Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown` and the backlog alert; Grafana provisioned the dashboard (found via `/api/search`) |
-| RabbitMQ adapter against a real `rabbitmq:3.13-management` container | exported backlog 5, consumers 0, enqueued 5 for a queue with 5 published messages |
-| GitHub Actions (`ci`, run 42587313095, commit "Translate docs to English") | success: `ruff` and `pytest` on Python 3.9 and 3.12; `promtool` check and unit tests, `amtool`, `docker compose config` |
-| Redis adapter against a real `redis:7` container | backlog 7 after 7 `RPUSH`, 6 after one `LPOP` |
-| File adapter on a real directory | 3 `.xml` files counted, oldest age taken from the oldest file's mtime |
-| Dashboard and alerts in a browser | screenshots in `docs/img`, taken with headless Chrome from the running stack |
-| Latest exporter in the full demo stack | after `stall` (consumers 0): `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert were firing; after stopping the exporter container `QueueExporterDown` fired |
+| Demo stack, end to end | all targets up. After `flood` (45 msg/s in, 7.5 out) `QueueBacklogGrowingHostHealthy` fired with host CPU at about 6%. After `stall`, Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert. After stopping the exporter container `QueueExporterDown` fired. Grafana provisioned the dashboard (found via `/api/search`) |
+| RabbitMQ adapter, real `rabbitmq:3.13-management` container | backlog 5, consumers 0, enqueued 5 for a queue with 5 published messages |
+| Redis adapter, real `redis:7` container | backlog 7 after 7 `RPUSH`, 6 after one `LPOP` |
+| File adapter, real directory | 3 `.xml` files counted, oldest age taken from the oldest file's mtime |
+
+CI (GitHub Actions, see the badge) runs `ruff` and `pytest` on Python 3.9 and 3.12, the `promtool` and `amtool` checks, `docker compose config`, and builds the exporter image and scrapes `/metrics` from it. The screenshots in `docs/img` were taken with headless Chrome from the running demo stack.
 
 Not verified: the Redis `AUTH` path against a real server, and any real production workload.
 
@@ -132,9 +131,9 @@ tests/       pytest for the exporter and adapters
 ## What I would improve next
 
 - Alertmanager receivers (email or chat) with a real routing example.
-- A Zabbix or Prometheus-compatible exporter for queues that expose only logs.
 - Per-queue labels so one exporter can watch several queues.
-- A restore test of the dashboard JSON in CI (load it into Grafana and check the panels have data).
+- A CI check that loads the dashboard JSON into Grafana and confirms the panels get data.
+- Redis AUTH test against a real server.
 
 ## Related
 

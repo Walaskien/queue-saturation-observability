@@ -29,3 +29,15 @@ jobs:
         run: docker run --rm -v "$PWD/alertmanager:/a:ro" --entrypoint amtool prom/alertmanager:v0.27.0 check-config /a/alertmanager.yml
       - name: compose file is valid
         run: docker compose config -q
+
+  exporter-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t queue-exporter ./exporter
+      - name: exporter serves metrics
+        run: |
+          docker run -d --name qe -p 19101:9101 queue-exporter
+          sleep 3
+          curl -sf localhost:19101/metrics | grep -q '^queue_backlog_messages'
+          docker rm -f qe
