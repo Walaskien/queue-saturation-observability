@@ -8,8 +8,8 @@ jobs:
       matrix:
         python: ["3.9", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -r requirements-dev.txt
@@ -19,7 +19,7 @@ jobs:
   prometheus:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: promtool check and unit tests
         run: |
           docker run --rm -v "$PWD/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v2.55.1 check config /p/prometheus.yml
@@ -33,7 +33,7 @@ jobs:
   exporter-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t queue-exporter ./exporter
       - name: exporter serves metrics
         run: |
