@@ -2,6 +2,12 @@ name: ci
 on: [push, pull_request]
 
 jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+
   python:
     runs-on: ubuntu-latest
     strategy:
