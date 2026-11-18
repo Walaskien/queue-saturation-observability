@@ -28,6 +28,20 @@ groups:
           summary: "Queue backlog grows and the host is saturated"
           description: "Resource shortage is a likely cause. See docs/runbook.md#queuebackloggrowinghostbusy"
 
+      # Neither variant above can fire without node series (max() of nothing is
+      # empty), so a growing backlog with no host data would stay silent.
+      - alert: QueueBacklogGrowingHostUnknown
+        expr: |
+          queue:backlog_growth:deriv1m > 1
+          and queue_backlog_messages > 100
+          and on() (absent(instance:node_cpu_busy:ratio1m)
+                    or absent(instance:node_memory_used:ratio))
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Backlog grows and there is no host data to tell the cause"
+          description: "node_exporter data is missing, check up{job=\"node\"}. See docs/runbook.md#queuebackloggrowinghostunknown"
+
       - alert: QueueOldestMessageTooOld
         expr: queue_oldest_message_age_seconds > 60
         for: 30s

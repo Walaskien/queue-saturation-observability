@@ -26,6 +26,14 @@ See [bottleneck-vs-host.md](bottleneck-vs-host.md).
 
 **Do:** remove or move the unrelated load, or scale the consumers out. If the consumers themselves are the load, the queue is under-provisioned.
 
+## QueueBacklogGrowingHostUnknown
+
+**Symptom:** backlog grows (> 1 msg/s, > 100 messages) and Prometheus has no `instance:node_cpu_busy:ratio1m` or `instance:node_memory_used:ratio` series, so the two alerts above cannot fire.
+
+**Check:** `up{job="node"}` first (node_exporter down, wrong job name, or the scrape job was never added). Then `node_cpu_seconds_total` and `node_memory_MemAvailable_bytes` in the expression browser.
+
+**Do:** restore the host data. Until then treat it as the host-healthy case: look at consumers, locks and downstream calls, and check `top` on the consumer hosts by hand.
+
 ## QueueOldestMessageTooOld
 
 **Symptom:** the oldest waiting message is older than 60 s (threshold in `prometheus/rules/alerts.yml`; set it to your real latency target).

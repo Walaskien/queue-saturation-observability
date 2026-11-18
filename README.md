@@ -42,6 +42,7 @@ Alerts (`prometheus/rules/alerts.yml`):
 
 - `QueueBacklogGrowingHostHealthy`: backlog grows, CPU < 80% and memory < 90%. Look at consumers, locks, downstream.
 - `QueueBacklogGrowingHostBusy`: backlog grows and the host is saturated. Look at the host.
+- `QueueBacklogGrowingHostUnknown`: backlog grows and there are no node series at all, so the two alerts above cannot fire.
 - `QueueOldestMessageTooOld`, `QueueProcessingStalled`, `QueueConsumersDown`, `QueueExporterDown`.
 
 ## Use it on your own queue
@@ -96,8 +97,8 @@ Local runs on macOS (Colima, Docker 29), Python 3.9.6:
 |---|---|
 | `pytest -q` (exporter, all adapters) | 13 passed |
 | `ruff check .` | all checks passed |
-| `promtool check config` and `check rules` | success, 12 rules (6 recording, 6 alerts) |
-| `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, healthy queue, dead consumers, stalled) |
+| `promtool check config` and `check rules` | success, 13 rules (6 recording, 7 alerts) |
+| `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, no node data, no-node-data control, healthy queue, dead consumers, stalled) |
 | `amtool check-config` | valid, 1 receiver |
 | `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
 | Demo stack, end to end | all targets up. After `flood` (45 msg/s in, 7.5 out) `QueueBacklogGrowingHostHealthy` fired with host CPU at about 6%. After `stall`, Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert. After stopping the exporter container `QueueExporterDown` fired. Grafana provisioned the dashboard (found via `/api/search`) |
@@ -116,6 +117,7 @@ Not verified: the Redis `AUTH` path against a real server, and any real producti
 - Redis lists: backlog only; no processing rate or age.
 - The simulator's `/control` endpoint is unauthenticated and exists only with `--source sim`.
 - Host thresholds use the busiest host in Prometheus (`max`). Filter by `instance` if consumers live on one host.
+- If node_exporter data is missing, the two host alerts stay silent by design; `QueueBacklogGrowingHostUnknown` covers that case but only while the queue exporter itself is up.
 - Alertmanager has an empty receiver on purpose (no secrets in the repo).
 
 ## Repository layout
