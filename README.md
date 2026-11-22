@@ -2,52 +2,33 @@
 
 [![ci](https://github.com/Walaskien/queue-saturation-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/Walaskien/queue-saturation-observability/actions/workflows/ci.yml)
 
-Monitoring for the case where a message queue falls behind while the servers look healthy.
+Monitoring for the case where a message queue falls behind while the servers look healthy. Consumers can be stuck on a database lock, a slow downstream call or a crashed worker, and CPU and RAM stay green. This repo measures the queue itself and tells a processing bottleneck apart from a lack of host resources.
 
-A queue of documents, jobs or events can back up because consumers are blocked on a database lock, a slow downstream call or a crashed worker. CPU and RAM graphs stay green, so host-level alerts say nothing, while users wait for their documents. This repository measures the queue itself and separates a processing bottleneck from a shortage of host resources.
+What is in it:
 
-It contains:
+- a small Prometheus exporter in Python (standard library only) with adapters for RabbitMQ (management API), Redis lists and a spool directory of files, plus a simulated queue for the demo
+- Prometheus recording and alerting rules with `promtool` unit tests
+- an Alertmanager config with an empty receiver, a Grafana dashboard provisioned from JSON, a [runbook](docs/runbook.md) and a note on [queue bottleneck vs host saturation](docs/bottleneck-vs-host.md)
+- a Docker Compose stack (Prometheus, Alertmanager, Grafana, node-exporter, exporter) to try it
 
-- a small Prometheus exporter (Python, standard library only) with adapters for RabbitMQ (management API), Redis lists and a spool directory of files, plus a simulated queue for the demo;
-- Prometheus recording and alerting rules, covered by `promtool` unit tests;
-- Alertmanager config skeleton, a Grafana dashboard provisioned from JSON, a [runbook](docs/runbook.md) (symptom, check, action), and a write-up on [telling a queue bottleneck from host saturation](docs/bottleneck-vs-host.md);
-- a Docker Compose stack (Prometheus, Alertmanager, Grafana, node-exporter, exporter) to see all of it working.
+It is a reference setup, not something used by customers. Check thresholds and credentials before pointing it at your own systems.
 
-This is a reference implementation, not a product used by customers. Review thresholds and credentials before using it on your own systems.
+## Metrics
 
-## How it works
+`queue_backlog_messages`, `queue_oldest_message_age_seconds`, `queue_enqueued_total`, `queue_processed_total`, `queue_stalled_seconds`, `queue_consumers` and `queue_source_up`. A metric is left out when the backend cannot provide it: the file adapter gives backlog and age (from file mtime), RabbitMQ gives backlog, counters, stalled time and consumers but no age, Redis lists give backlog only. The simulator gives everything.
 
-```mermaid
-flowchart LR
-  Q[(Queue backend<br/>RabbitMQ / Redis / files)] --> E[queue_exporter.py<br/>:9101/metrics]
-  N[node-exporter] --> P[Prometheus<br/>recording + alert rules]
-  E --> P
-  P --> A[Alertmanager]
-  P --> G[Grafana dashboard]
-  A --> R[your receiver]
-```
+## Alerts
 
-Metrics (a metric is left out when the backend cannot provide it):
+Defined in `prometheus/rules/alerts.yml`:
 
-| Metric | RabbitMQ | Redis list | Files | Simulator |
-|---|---|---|---|---|
-| `queue_backlog_messages` | yes (ready + unacked) | yes | yes | yes |
-| `queue_oldest_message_age_seconds` | no | no | yes (file mtime) | yes |
-| `queue_enqueued_total` / `queue_processed_total` | yes (publish / ack) | no | no | yes |
-| `queue_stalled_seconds` (backlog, no progress) | yes | no | no | yes |
-| `queue_consumers` | yes | no | no | yes |
-| `queue_source_up` | yes | yes | yes | yes |
-
-Alerts (`prometheus/rules/alerts.yml`):
-
-- `QueueBacklogGrowingHostHealthy`: backlog grows, CPU < 80% and memory < 90%. Look at consumers, locks, downstream.
+- `QueueBacklogGrowingHostHealthy`: backlog grows while CPU is under 80% and memory under 90%. Look at consumers, locks, downstream.
 - `QueueBacklogGrowingHostBusy`: backlog grows and the host is saturated. Look at the host.
-- `QueueBacklogGrowingHostUnknown`: backlog grows and there are no node series at all, so the two alerts above cannot fire.
+- `QueueBacklogGrowingHostUnknown`: backlog grows and there are no node series at all, so the two above cannot fire.
 - `QueueOldestMessageTooOld`, `QueueProcessingStalled`, `QueueConsumersDown`, `QueueExporterDown`.
 
 ## Use it on your own queue
 
-Run the exporter next to your broker (Python 3.9+, no dependencies):
+Run the exporter next to the broker (Python 3.9+, no dependencies):
 
 ```console
 # RabbitMQ (rabbitmq_management plugin, user with the "monitoring" tag)
@@ -62,19 +43,9 @@ REDIS_PASSWORD=... python3 exporter/queue_exporter.py --source redis --queue doc
 python3 exporter/queue_exporter.py --source file --queue /var/spool/docs --file-suffix .xml
 ```
 
-Then add a scrape job pointing at `:9101` to your Prometheus, copy `prometheus/rules/*.yml`, import `grafana/dashboards/queue-saturation.json`, and set the thresholds in `alerts.yml` to your real latency target. The host-resource part of the alerts needs `node_exporter` metrics from the consumer hosts.
+Then add a scrape job for `:9101`, copy `prometheus/rules/*.yml`, import `grafana/dashboards/queue-saturation.json` and set the thresholds in `alerts.yml` to your real latency target. The host part of the alerts needs `node_exporter` on the consumer hosts.
 
-## What it looks like
-
-Demo stack after `make demo-flood` and `make demo-stall`. The backlog and the oldest message age keep growing while host CPU falls back to idle.
-
-![Grafana dashboard](docs/img/grafana-dashboard.png)
-
-Alertmanager with the four queue alerts firing:
-
-![Alertmanager](docs/img/alertmanager.png)
-
-## Try the demo stack
+## Demo stack
 
 Needs Docker with Compose.
 
@@ -87,57 +58,38 @@ make alerts        # currently firing alerts
 make down
 ```
 
-Grafana: http://localhost:3000 (anonymous viewer; admin/admin is a demo password, change it for anything else). Prometheus: :9090, Alertmanager: :9093.
+Grafana is on http://localhost:3000 (anonymous viewer, admin/admin is a demo password), Prometheus on :9090, Alertmanager on :9093.
 
-## Verified
+## Checked
 
-Local runs on macOS (Colima, Docker 29), Python 3.9.6:
+Run locally on macOS (Colima, Docker 29), Python 3.9.6:
 
-| Check | Result |
-|---|---|
-| `pytest -q` (exporter, all adapters) | 13 passed |
-| `ruff check .` | all checks passed |
-| `promtool check config` and `check rules` | success, 13 rules (6 recording, 7 alerts) |
-| `promtool test rules prometheus/tests.yml` | success (healthy host, busy host, no node data, no-node-data control, healthy queue, dead consumers, stalled) |
-| `amtool check-config` | valid, 1 receiver |
-| `docker-compose config` | valid (compose v1.29 in a venv; CI uses `docker compose`) |
-| Demo stack, end to end | all targets up. After `flood` (45 msg/s in, 7.5 out) `QueueBacklogGrowingHostHealthy` fired with host CPU at about 6%. After `stall`, Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert. After stopping the exporter container `QueueExporterDown` fired. Grafana provisioned the dashboard (found via `/api/search`) |
-| RabbitMQ adapter, real `rabbitmq:3.13-management` container | backlog 5, consumers 0, enqueued 5 for a queue with 5 published messages |
-| Redis adapter, real `redis:7` container | backlog 7 after 7 `RPUSH`, 6 after one `LPOP` |
-| File adapter, real directory | 3 `.xml` files counted, oldest age taken from the oldest file's mtime |
+- `pytest -q`: 13 passed. `ruff check .`: clean.
+- `promtool check config` and `check rules`: success, 13 rules (6 recording, 7 alerts). `promtool test rules prometheus/tests.yml`: success.
+- `amtool check-config`: valid, 1 receiver. `docker-compose config`: valid (compose v1.29 in a venv; CI uses `docker compose`).
+- Demo stack end to end: after `flood` (45 msg/s in, 7.5 out) `QueueBacklogGrowingHostHealthy` fired with host CPU around 6%. After `stall` Alertmanager held `QueueOldestMessageTooOld`, `QueueConsumersDown`, `QueueProcessingStalled` and the backlog alert. Stopping the exporter container fired `QueueExporterDown`. Grafana provisioned the dashboard.
+- RabbitMQ adapter against a real `rabbitmq:3.13-management` container: backlog 5, consumers 0, enqueued 5 for 5 published messages.
+- Redis adapter against a real `redis:7` container: backlog 7 after 7 `RPUSH`, 6 after one `LPOP`.
+- File adapter on a real directory: 3 `.xml` files counted, age taken from the oldest mtime.
 
-CI (GitHub Actions, see the badge) runs `ruff` and `pytest` on Python 3.9 and 3.12, the `promtool` and `amtool` checks, `docker compose config`, and builds the exporter image and scrapes `/metrics` from it. The screenshots in `docs/img` were taken with headless Chrome from the running demo stack.
+CI (see the badge) runs `ruff` and `pytest` on Python 3.9 and 3.12, the `promtool` and `amtool` checks, `docker compose config`, and builds the exporter image and scrapes `/metrics` from it.
 
-Not verified: the Redis `AUTH` path against a real server, and any real production workload.
+Not checked: the Redis `AUTH` path against a real server.
 
 ## Limits
 
-- Thresholds are starting points. `for:` durations in the rules are short so the demo reacts in seconds; raise them for noisy real queues.
-- RabbitMQ: one queue per exporter; no age of the oldest message (the API does not give it), so use `QueueProcessingStalled`.
-- Redis lists: backlog only; no processing rate or age.
+- Thresholds are starting points. `for:` durations are short so the demo reacts in seconds; raise them for noisy real queues.
+- RabbitMQ: one queue per exporter, and no age of the oldest message (the API does not give it), so use `QueueProcessingStalled`.
+- Redis lists: backlog only, no processing rate or age.
 - The simulator's `/control` endpoint is unauthenticated and exists only with `--source sim`.
 - Host thresholds use the busiest host in Prometheus (`max`). Filter by `instance` if consumers live on one host.
-- If node_exporter data is missing, the two host alerts stay silent by design; `QueueBacklogGrowingHostUnknown` covers that case but only while the queue exporter itself is up.
-- Alertmanager has an empty receiver on purpose (no secrets in the repo).
+- With no node_exporter data the two host alerts stay silent by design. `QueueBacklogGrowingHostUnknown` covers that, but only while the queue exporter itself is up.
 
-## Repository layout
-
-```
-exporter/    queue_exporter.py, sources.py (adapters), loadgen.py, Dockerfile
-prometheus/  prometheus.yml, rules/ (recording, alerts), tests.yml (promtool unit tests)
-alertmanager/, grafana/   configs and provisioned dashboard
-docs/        runbook.md, bottleneck-vs-host.md
-tests/       pytest for the exporter and adapters
-```
-
-## What I would improve next
+## Not done
 
 - Alertmanager receivers (email or chat) with a real routing example.
 - Per-queue labels so one exporter can watch several queues.
 - A CI check that loads the dashboard JSON into Grafana and confirms the panels get data.
 - Redis AUTH test against a real server.
 
-## Related
-
-- [ansible-linux-baseline](https://github.com/Walaskien/ansible-linux-baseline): installs node_exporter on the consumer hosts, which the host-resource alerts here need.
-- [single-node-k8s-platform](https://github.com/Walaskien/single-node-k8s-platform): another stack with a CI-verified end-to-end check.
+Related: [ansible-linux-baseline](https://github.com/Walaskien/ansible-linux-baseline) installs node_exporter on the consumer hosts.
